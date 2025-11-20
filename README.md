@@ -3,6 +3,9 @@
 **Projet ENSAE - 2ème année**  
 **Durée**: 2 mois | **Équipe**: DEJEAN William, AUVEPRE Édouard, SALA SATORRE Daniel
 
+Objectif : Calculer des probabilités de victoire de matchs de tennis et les comparer à des cotes de bookmakers
+-->Si temps, créer un portefeuille et parier sur des matchs à venir à partir de nos cotes et observer les gains. 
+
 ---
 
 ## 🎯 Idée Générale
@@ -40,6 +43,10 @@ Créer un modèle qui prédit le vainqueur d'un match de tennis en utilisant Pyt
 
 **Pourquoi c'est important ?** Les cotes des bookmakers = prédictions d'experts. On pourra comparer notre modèle aux pros du pari !
 
+Données :
+-CSV  Jeff Sackman
+- API Rapid API
+- Web scrapping : tennis abstract
 ---
 
 ## 🚀 Approche Progressive 
