@@ -3,7 +3,7 @@
 import pickle
 import numpy as np
 from pathlib import Path
-from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
 
 from .models import get_models
@@ -33,82 +33,76 @@ def evaluate_model(model, X, y):
 def train_model(X_train, y_train, model_name=None, cv=5):
     """
     Entraîne un modèle avec GridSearchCV.
-    
+
     Args:
         X_train: features
         y_train: target
         model_name: nom du modèle (si None, utilise MODEL_NAME de config)
-        cv: nombre de folds
-    
+        cv: nombre de folds pour la cross-validation
+
     Returns:
         best_model, info_dict
     """
     if model_name is None:
         model_name = MODEL_NAME
-    
+
     models = get_models()
     if model_name not in models:
         raise ValueError(f"Model {model_name} not found. Available: {list(models.keys())}")
-    
+
     model, param_grid = models[model_name]
-    
-    # Split pour évaluation finale
-    X_tr, X_val, y_tr, y_val = train_test_split(
-        X_train, y_train, test_size=0.2, random_state=RANDOM_STATE
-    )
-    
-    print(f"Training {model_name} with GridSearchCV...")
-    
+
+    print(f"Training {model_name} with GridSearchCV (cv={cv})...")
+    print(f"Training on {len(X_train)} samples")
+
     search = GridSearchCV(
         estimator=model,
         param_grid=param_grid,
         scoring="accuracy",
         cv=cv,
         n_jobs=-1,
-        verbose=1
+        verbose=1,
+        refit=True  # Réentraîne automatiquement sur tout X_train avec les meilleurs params
     )
-    search.fit(X_tr, y_tr)
-    
-    # Évaluer sur validation
-    metrics = evaluate_model(search.best_estimator_, X_val, y_val)
-    
-    print(f"Best params: {search.best_params_}")
-    print(f"Accuracy: {metrics['accuracy']:.4f}")
-    print(f"Log Loss: {metrics['log_loss']:.4f}")
-    print(f"ROC AUC: {metrics['roc_auc']:.4f}")
-    
+    search.fit(X_train, y_train)  # GridSearchCV gère la validation en interne
+
+    # Scores de cross-validation
+    cv_score = search.best_score_
+    cv_std = search.cv_results_['std_test_score'][search.best_index_]
+
+    print(f"\nBest params: {search.best_params_}")
+    print(f"CV Accuracy: {cv_score:.4f} (+/- {cv_std:.4f})")
+
     info = {
         "name": model_name,
         "best_params": search.best_params_,
-        **metrics
+        "cv_accuracy": cv_score,
+        "cv_std": cv_std
     }
-    
+
     return search.best_estimator_, info
 
 
 def train_with_automl(X_train, y_train, time_budget=300):
     """
     Entraîne avec FLAML AutoML.
-    
+
     Args:
         X_train: features
         y_train: target
         time_budget: temps max en secondes
-    
+
     Returns:
         best_model, info_dict
     """
     from flaml import AutoML
-    
-    X_tr, X_val, y_tr, y_val = train_test_split(
-        X_train, y_train, test_size=0.2, random_state=RANDOM_STATE
-    )
-    
+
     print(f"Running AutoML (time_budget={time_budget}s)...")
-    
+    print(f"Training on {len(X_train)} samples")
+
     automl = AutoML()
     automl.fit(
-        X_tr, y_tr,
+        X_train, y_train,  # FLAML gère la validation en interne
         task="classification",
         metric="accuracy",
         time_budget=time_budget,
@@ -116,21 +110,17 @@ def train_with_automl(X_train, y_train, time_budget=300):
         seed=RANDOM_STATE,
         verbose=1
     )
-    
-    metrics = evaluate_model(automl, X_val, y_val)
-    
+
     print(f"\nBest estimator: {automl.best_estimator}")
     print(f"Best config: {automl.best_config}")
-    print(f"Accuracy: {metrics['accuracy']:.4f}")
-    print(f"Log Loss: {metrics['log_loss']:.4f}")
-    print(f"ROC AUC: {metrics['roc_auc']:.4f}")
-    
+    print(f"Best validation score: {automl.best_loss:.4f}")
+
     info = {
         "name": f"AutoML_{automl.best_estimator}",
         "best_params": automl.best_config,
-        **metrics
+        "best_val_score": -automl.best_loss  # FLAML minimise la loss, donc on inverse
     }
-    
+
     return automl, info
 
 
