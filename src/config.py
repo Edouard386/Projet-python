@@ -16,9 +16,9 @@ N_HISTORICAL_MATCHES = 10
 N_SURFACE_MATCHES = 20
 
 # Training
-MODEL_NAME = "LogisticRegression"  # "LogisticRegression", "RandomForest", "XGBoost", "AutoML"
+MODEL_NAME = "AutoML"  # "LogisticRegression", "RandomForest", "XGBoost", "AutoML"
 AUTOML_TIME_BUDGET = 300  # secondes (si MODEL_NAME = "AutoML")
-SKIP_PREPROCESSING = True  # True pour charger directement les parquets
+SKIP_PREPROCESSING = False  # True pour charger directement les parquets
 
 # Colonnes
 PLAYER_COLS = ["id", "name", "hand", "ht", "age", "rank", "rank_points"]

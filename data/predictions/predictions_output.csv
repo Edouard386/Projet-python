@@ -1,0 +1,3 @@
+player_a_id,player_a_name,player_a_rank,player_a_points,player_a_age,player_a_ht,player_a_hand,player_b_id,player_b_name,player_b_rank,player_b_points,player_b_age,player_b_ht,player_b_hand,surface,tourney_level,best_of,round,proba_player_a_wins,predicted_winner,confidence
+S0AG,Jannik Sinner,1,12050,24,188,R,A0E2,Carlos Alcaraz,2,11500,22,183,R,Hard,M,3,SF,0.3630258349540169,Carlos Alcaraz,0.636974165045983
+S0AG,Jannik Sinner,1,12050,24,188,R,MM58,Daniil Medvedev,13,2760,29,198,R,Clay,M,3,SF,0.5638311130849194,Jannik Sinner,0.5638311130849194
