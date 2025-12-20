@@ -19,8 +19,7 @@ HALF_LIFE_DAYS = 180
 # Training
 MODEL_NAME = "LinearStats"  # "LogisticRegression", "RandomForest", "XGBoost", "AutoML", "LinearStats"
 AUTOML_TIME_BUDGET = 300  # secondes (si MODEL_NAME = "AutoML")
-SKIP_PREPROCESSING = True  # True pour charger directement les parquets
-USE_RANDOM_SPLIT = True  # True = split aléatoire, False = split temporel
+SKIP_PREPROCESSING = False  # True pour charger directement les parquets
 USE_FEATURE_SELECTION = True  # True = RFECV pour LinearStats
 
 # Colonnes

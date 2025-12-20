@@ -198,12 +198,8 @@ def create_features(df, history, n_hist, n_surf, rng, half_life_days=None):
             "round": row["round"],
         }
         
-        # Differences
-        f["rank_diff"] = f["rank_a"] - f["rank_b"]
+        # Differences (only rank_ratio kept, others removed to avoid multicollinearity)
         f["rank_ratio"] = f["rank_a"] / f["rank_b"] if f["rank_b"] > 0 else 1
-        f["points_diff"] = f["points_a"] - f["points_b"]
-        f["age_diff"] = f["age_a"] - f["age_b"]
-        f["height_diff"] = f["height_a"] - f["height_b"]
         
         # Stats historiques joueur A
         stats_a = get_player_stats(history, player_a_id, match_date, n_hist, half_life_days=half_life_days)
@@ -230,11 +226,6 @@ def create_features(df, history, n_hist, n_surf, rng, half_life_days=None):
         # H2H
         f["h2h_win_rate_a"] = get_h2h(history, player_a_id, player_b_id, match_date, half_life_days=half_life_days)
         
-        # Differences historiques
-        f["win_rate_diff"] = f["win_rate_a"] - f["win_rate_b"]
-        f["surface_win_rate_diff"] = f["surface_win_rate_a"] - f["surface_win_rate_b"]
-        f["ace_rate_diff"] = f["ace_rate_a"] - f["ace_rate_b"]
-        f["bp_save_rate_diff"] = f["bp_save_rate_a"] - f["bp_save_rate_b"]
         
         features_list.append(f)
     
