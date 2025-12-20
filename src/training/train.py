@@ -3,10 +3,12 @@
 import pickle
 import numpy as np
 from pathlib import Path
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, cross_val_score
+from sklearn.feature_selection import RFECV
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
 
-from .models import get_models
+from .models import get_models, StatsLogitClassifier
 
 import sys
 sys.path.append(str(Path(__file__).parent.parent))
@@ -122,6 +124,59 @@ def train_with_automl(X_train, y_train, time_budget=300):
     }
 
     return automl, info
+
+
+def train_linear_with_selection(X_train, y_train, cv=5, use_rfecv=True):
+    """
+    Entraîne StatsLogitClassifier avec sélection de features optionnelle.
+
+    Args:
+        X_train: features
+        y_train: target
+        cv: nombre de folds pour cross-validation
+        use_rfecv: si True, utilise RFECV pour sélectionner les features
+
+    Returns:
+        model, info_dict, selected_features
+    """
+    print(f"Training LinearStats (cv={cv}, feature_selection={use_rfecv})...")
+    print(f"Training on {len(X_train)} samples, {X_train.shape[1]} features")
+
+    selected_features = list(X_train.columns)
+
+    if use_rfecv:
+        print("Running RFECV for feature selection...")
+        # penalty=None pour être cohérent avec statsmodels.Logit (pas de régularisation)
+        estimator = LogisticRegression(max_iter=1000, random_state=RANDOM_STATE, penalty=None)
+        selector = RFECV(estimator, step=1, cv=cv, scoring='accuracy', n_jobs=-1)
+        selector.fit(X_train, y_train)
+
+        selected_features = list(X_train.columns[selector.support_])
+        print(f"Selected {len(selected_features)}/{X_train.shape[1]} features")
+        X_train = X_train[selected_features]
+
+    # Entraîner StatsLogitClassifier
+    model = StatsLogitClassifier()
+    model.fit(X_train, y_train)
+
+    # Cross-validation score
+    cv_scores = cross_val_score(
+        LogisticRegression(max_iter=1000, random_state=RANDOM_STATE, penalty=None),
+        X_train, y_train, cv=cv, scoring='accuracy'
+    )
+
+    print(f"\nCV Accuracy: {cv_scores.mean():.4f} (+/- {cv_scores.std():.4f})")
+    print(f"\n{model.summary()}")
+
+    info = {
+        "name": "LinearStats",
+        "n_features": len(selected_features),
+        "cv_accuracy": cv_scores.mean(),
+        "cv_std": cv_scores.std(),
+        "selected_features": selected_features
+    }
+
+    return model, info, selected_features
 
 
 def save_model(model, path=None):

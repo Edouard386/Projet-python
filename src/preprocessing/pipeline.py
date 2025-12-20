@@ -13,7 +13,7 @@ from .features import (
 
 import sys
 sys.path.append(str(Path(__file__).parent.parent))
-from config import RANDOM_STATE, N_HISTORICAL_MATCHES, N_SURFACE_MATCHES, HALF_LIFE_DAYS
+from config import RANDOM_STATE, N_HISTORICAL_MATCHES, N_SURFACE_MATCHES, HALF_LIFE_DAYS, USE_RANDOM_SPLIT
 
 
 class TennisPreprocessor:
@@ -245,17 +245,27 @@ def temporal_split(df, test_size=0.2):
     return df.iloc[:split_idx].copy(), df.iloc[split_idx:].copy()
 
 
+def random_split(df, test_size=0.2, random_state=RANDOM_STATE):
+    """Split aléatoire."""
+    from sklearn.model_selection import train_test_split
+    return train_test_split(df, test_size=test_size, random_state=random_state)
+
+
 def run_preprocessing(raw_dir, save_dir=None):
     """Pipeline complet de preprocessing."""
     print("Loading data...")
     matches = load_matches(raw_dir)
     print(f"Loaded {len(matches)} matches")
-    
+
     matches = clean_matches(matches)
     print(f"After cleaning: {len(matches)} matches")
-    
-    train_matches, test_matches = temporal_split(matches)
-    print(f"Train: {len(train_matches)}, Test: {len(test_matches)}")
+
+    if USE_RANDOM_SPLIT:
+        train_matches, test_matches = random_split(matches)
+        print(f"Train: {len(train_matches)}, Test: {len(test_matches)} (random split)")
+    else:
+        train_matches, test_matches = temporal_split(matches)
+        print(f"Train: {len(train_matches)}, Test: {len(test_matches)} (temporal split)")
     
     print("Creating features...")
     preprocessor = TennisPreprocessor()

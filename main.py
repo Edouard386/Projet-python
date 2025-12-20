@@ -6,11 +6,14 @@ Configurer les paramètres dans src/config.py
 import pandas as pd
 import numpy as np
 from src.config import (
-    RAW_DIR, PROCESSED_DIR, MODEL_NAME, 
-    AUTOML_TIME_BUDGET, SKIP_PREPROCESSING
+    RAW_DIR, PROCESSED_DIR, MODEL_NAME,
+    AUTOML_TIME_BUDGET, SKIP_PREPROCESSING, USE_FEATURE_SELECTION
 )
 from src.preprocessing.pipeline import run_preprocessing
-from src.training.train import train_model, train_with_automl, save_model, evaluate_model
+from src.training.train import (
+    train_model, train_with_automl, train_linear_with_selection,
+    save_model, evaluate_model
+)
 
 
 def load_processed_data():
@@ -39,9 +42,14 @@ def main():
     print("\n" + "=" * 50)
     print(f"TRAINING: {MODEL_NAME}")
     print("=" * 50)
-    
+
+    selected_features = None
     if MODEL_NAME == "AutoML":
         model, info = train_with_automl(X_train, y_train, time_budget=AUTOML_TIME_BUDGET)
+    elif MODEL_NAME == "LinearStats":
+        model, info, selected_features = train_linear_with_selection(
+            X_train, y_train, use_rfecv=USE_FEATURE_SELECTION
+        )
     else:
         model, info = train_model(X_train, y_train, model_name=MODEL_NAME)
     
@@ -49,8 +57,10 @@ def main():
     print("\n" + "=" * 50)
     print("TEST SET EVALUATION")
     print("=" * 50)
-    
-    test_metrics = evaluate_model(model, X_test, y_test)
+
+    # Pour LinearStats, utiliser seulement les features sélectionnées
+    X_test_eval = X_test[selected_features] if selected_features else X_test
+    test_metrics = evaluate_model(model, X_test_eval, y_test)
     print(f"Accuracy: {test_metrics['accuracy']:.4f}")
     print(f"Log Loss: {test_metrics['log_loss']:.4f}")
     print(f"ROC AUC: {test_metrics['roc_auc']:.4f}")
