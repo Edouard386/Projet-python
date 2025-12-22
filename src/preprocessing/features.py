@@ -178,9 +178,16 @@ def create_features(df, history, n_hist, n_surf, rng, half_life_days=None):
         player_b_id = row[f"{b_prefix}_id"]
         match_date = row["tourney_date"]
         surface = row["surface"]
-        
-        # Features statiques
+
+        # Colonnes meta (pour identifier le match, pas pour l'entraînement)
         f = {
+            "player_a_name": row[f"{a_prefix}_name"],
+            "player_b_name": row[f"{b_prefix}_name"],
+            "tourney_date": match_date,
+        }
+
+        # Features statiques
+        f.update({
             "target": target,
             "rank_a": row[f"{a_prefix}_rank"],
             "rank_b": row[f"{b_prefix}_rank"],
@@ -196,8 +203,8 @@ def create_features(df, history, n_hist, n_surf, rng, half_life_days=None):
             "tourney_level": row["tourney_level"],
             "best_of_5": 1 if row["best_of"] == 5 else 0,
             "round": row["round"],
-        }
-        
+        })
+
         # Differences (only rank_ratio kept, others removed to avoid multicollinearity)
         f["rank_ratio"] = f["rank_a"] / f["rank_b"] if f["rank_b"] > 0 else 1
         

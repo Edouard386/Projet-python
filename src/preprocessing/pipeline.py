@@ -29,25 +29,46 @@ class TennisPreprocessor:
         self.feature_cols = None
         self.fitted = False
 
-    def fit_transform(self, matches_df):
-        """Fit et transforme toutes les données."""
+    def build_history(self, matches_df):
+        """Construit l'historique des joueurs à partir des matchs."""
         self.history = build_player_history(matches_df)
+        return self.history
+
+    def create_features(self, matches_df, rng=None):
+        """
+        Crée les features à partir des matchs.
+        Nécessite que build_history() ait été appelé avant.
+        """
+        if self.history is None:
+            raise ValueError("Appelez build_history() d'abord")
+
+        if rng is None:
+            rng = self.rng
 
         features_df = create_features(
             matches_df,
             self.history,
             self.n_hist,
             self.n_surf,
-            self.rng,
+            rng,
             half_life_days=self.half_life_days,
         )
+        return features_df
 
-        features_df = self._encode_categorical(features_df, fit=True)
+    def encode(self, features_df, fit=True):
+        """Applique le one-hot encoding aux variables catégorielles."""
+        encoded = self._encode_categorical(features_df.copy(), fit=fit)
+        if fit:
+            meta_cols = ["target", "player_a_name", "player_b_name", "tourney_date"]
+            self.feature_cols = [c for c in encoded.columns if c not in meta_cols]
+            self.fitted = True
+        return encoded
 
-        drop_cols = ["target"]
-        self.feature_cols = [c for c in features_df.columns if c not in drop_cols]
-        self.fitted = True
-
+    def fit_transform(self, matches_df):
+        """Fit et transforme toutes les données (raccourci)."""
+        self.build_history(matches_df)
+        features_df = self.create_features(matches_df)
+        features_df = self.encode(features_df, fit=True)
         return features_df
 
     def transform_upcoming(self, upcoming_df):
@@ -178,10 +199,38 @@ class TennisPreprocessor:
         return df
     
     def get_X_y(self, features_df):
-        """Sépare features et target."""
-        X = features_df.drop(columns=["target"])
+        """Sépare features et target, en enlevant les colonnes meta."""
+        meta_cols = ["target", "player_a_name", "player_b_name", "tourney_date"]
+        cols_to_drop = [c for c in meta_cols if c in features_df.columns]
+        X = features_df.drop(columns=cols_to_drop)
         y = features_df["target"]
         return X, y
+
+    def split_temporal(self, features_df, cutoff_year=2024):
+        """
+        Split temporel : train ≤ cutoff_year, test > cutoff_year.
+
+        Args:
+            features_df: DataFrame avec colonne tourney_date
+            cutoff_year: année de coupure (incluse dans train)
+
+        Returns:
+            X_train, X_test, y_train, y_test, meta_test
+        """
+        df = features_df.copy()
+        df['_year'] = pd.to_datetime(df['tourney_date']).dt.year
+
+        train_df = df[df['_year'] <= cutoff_year].drop(columns=['_year'])
+        test_df = df[df['_year'] > cutoff_year].drop(columns=['_year'])
+
+        # Garder les colonnes meta du test pour la comparaison bookmakers
+        meta_cols = ["player_a_name", "player_b_name", "tourney_date"]
+        meta_test = test_df[meta_cols].copy().reset_index(drop=True)
+
+        X_train, y_train = self.get_X_y(train_df)
+        X_test, y_test = self.get_X_y(test_df)
+
+        return X_train, X_test, y_train, y_test, meta_test
     
     def save(self, path):
         """Sauvegarde le preprocessor."""
