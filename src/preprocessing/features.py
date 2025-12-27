@@ -159,10 +159,65 @@ def get_default_stats(rank):
     else:
         return {"win_rate": 0.45, "ace_rate": 0.04, "df_rate": 0.04, "first_serve_pct": 0.58,
                 "first_serve_won": 0.68, "second_serve_won": 0.48, "bp_save_rate": 0.58, "matches_played": 0}
+    
+
+def compute_elo_ratings(df, base_rating=1500, k=32, surface_factor=0.5):
+    """
+    Calcule les Elo globaux et par surface pour chaque match (valeur pré-match).
+    Retourne un DataFrame avec colonnes winner_elo, loser_elo, winner_surface_elo, loser_surface_elo.
+    """
+    df_sorted = df.sort_values("tourney_date").reset_index()
+    elo_global = defaultdict(lambda: base_rating)
+    elo_surface = defaultdict(lambda: base_rating)
+
+    winner_elo = {}
+    loser_elo = {}
+    winner_surface_elo = {}
+    loser_surface_elo = {}
+
+    for _, row in df_sorted.iterrows():
+        idx = row["index"]
+        w_id = row["winner_id"]
+        l_id = row["loser_id"]
+        surface = row["surface"]
+
+        rw = elo_global[w_id]
+        rl = elo_global[l_id]
+        rws = elo_surface[(w_id, surface)]
+        rls = elo_surface[(l_id, surface)]
+
+        winner_elo[idx] = rw
+        loser_elo[idx] = rl
+        winner_surface_elo[idx] = rws
+        loser_surface_elo[idx] = rls
+
+        # Mise à jour Elo global
+        expected_w = 1 / (1 + 10 ** ((rl - rw) / 400))
+        expected_l = 1 - expected_w
+        elo_global[w_id] = rw + k * (1 - expected_w)
+        elo_global[l_id] = rl + k * (0 - expected_l)
+
+        # Mise à jour Elo surface
+        k_surf = k * surface_factor
+        expected_w_s = 1 / (1 + 10 ** ((rls - rws) / 400))
+        expected_l_s = 1 - expected_w_s
+        elo_surface[(w_id, surface)] = rws + k_surf * (1 - expected_w_s)
+        elo_surface[(l_id, surface)] = rls + k_surf * (0 - expected_l_s)
+
+    elo_df = pd.DataFrame({
+        "winner_elo": pd.Series(winner_elo),
+        "loser_elo": pd.Series(loser_elo),
+        "winner_surface_elo": pd.Series(winner_surface_elo),
+        "loser_surface_elo": pd.Series(loser_surface_elo),
+    })
+    return elo_df
 
 
 def create_features(df, history, n_hist, n_surf, rng, half_life_days=None):
     """Cree toutes les features pour un DataFrame de matchs avec decay temporel."""
+
+    elo_df= compute_elo_ratings(df)
+    df=pd.concat([df, elo_df], axis=1)
     features_list = []
     
     for _, row in df.iterrows():
@@ -189,6 +244,10 @@ def create_features(df, history, n_hist, n_surf, rng, half_life_days=None):
             "rank_b": row[f"{b_prefix}_rank"],
             "points_a": row[f"{a_prefix}_rank_points"],
             "points_b": row[f"{b_prefix}_rank_points"],
+            "elo_a": row[f"{a_prefix}_elo"],
+            "elo_b": row[f"{b_prefix}_elo"],
+            "elo_surface_a": row[f"{a_prefix}_surface_elo"],
+            "elo_surface_b": row[f"{b_prefix}_surface_elo"],
             "age_a": row[f"{a_prefix}_age"],
             "age_b": row[f"{b_prefix}_age"],
             "height_a": row[f"{a_prefix}_ht"],
@@ -201,7 +260,6 @@ def create_features(df, history, n_hist, n_surf, rng, half_life_days=None):
             "round": row["round"],
         })
 
-        # Differences (only rank_ratio kept, others removed to avoid multicollinearity)
         f["rank_ratio"] = f["rank_a"] / f["rank_b"] if f["rank_b"] > 0 else 1
         
         # Stats historiques joueur A

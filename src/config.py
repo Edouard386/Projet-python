@@ -15,6 +15,9 @@ TEST_SIZE = 0.2
 N_HISTORICAL_MATCHES = 10
 N_SURFACE_MATCHES = 20
 HALF_LIFE_DAYS = 180
+ELO_BASE = 1500
+ELO_K = 32
+ELO_SURFACE_FACTOR = 0.5
 
 # Training
 MODEL_NAME = "LinearStats"  # "LogisticRegression", "RandomForest", "XGBoost", "AutoML", "LinearStats"
