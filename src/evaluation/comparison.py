@@ -237,3 +237,66 @@ def compare_accuracy(model_proba, bookmaker_odds_a, bookmaker_odds_b, actual_res
         'model_proba_mean': model_proba.mean(),
         'bookmaker_proba_a_mean': bk_proba_a.mean()
     }
+
+
+def calculate_roi_evolution(predictions, actual_results, bookmaker_odds, stake=1.0):
+    """
+    Calcule l'évolution du ROI au fil des paris.
+
+    Retourne un DataFrame avec le profit et ROI cumulés après chaque pari.
+    """
+    predictions = np.asarray(predictions)
+    actual_results = np.asarray(actual_results)
+    bookmaker_odds = np.asarray(bookmaker_odds)
+
+    n_bets = len(predictions)
+    cumul_stake = np.arange(1, n_bets + 1) * stake
+
+    # Gains par pari : mise * cote si gagné, 0 sinon
+    wins = predictions == actual_results
+    gains_per_bet = wins * bookmaker_odds * stake
+
+    # Cumulés
+    cumul_gains = np.cumsum(gains_per_bet)
+    cumul_profit = cumul_gains - cumul_stake
+    cumul_roi = cumul_profit / cumul_stake * 100
+
+    return pd.DataFrame({
+        'n_bets': np.arange(1, n_bets + 1),
+        'cumul_stake': cumul_stake,
+        'cumul_gains': cumul_gains,
+        'cumul_profit': cumul_profit,
+        'cumul_roi': cumul_roi
+    })
+
+
+def analyze_threshold_impact(model_proba, actual_results, bookmaker_odds,
+                              thresholds=None, stake=1.0):
+    """
+    Analyse l'impact du seuil de value bet sur le ROI.
+
+    Retourne un DataFrame avec les métriques pour chaque seuil.
+    """
+    if thresholds is None:
+        thresholds = np.arange(0, 0.30, 0.02)
+
+    results = []
+    for thresh in thresholds:
+        roi = calculate_roi_value_bets(
+            model_proba=model_proba,
+            actual_results=actual_results,
+            bookmaker_odds=bookmaker_odds,
+            threshold=thresh,
+            stake=stake
+        )
+        results.append({
+            'threshold': thresh,
+            'threshold_pct': thresh * 100,
+            'n_bets': roi['n_bets'],
+            'n_wins': roi['n_wins'],
+            'win_rate': roi['win_rate'] * 100,
+            'profit': roi['profit'],
+            'roi': roi['roi'] * 100
+        })
+
+    return pd.DataFrame(results)
