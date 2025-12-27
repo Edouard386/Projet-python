@@ -1,164 +1,79 @@
-# 🎾 Projet Tennis : Analyse et Prédiction de Matchs ATP/WTA
+# ATP Tennis Match Prediction
 
-**Projet ENSAE - 2ème année**  
-**Durée**: 2 mois | **Équipe**: DEJEAN William, AUVEPRE Édouard, SALA SATORRE Daniel
+A machine learning pipeline for predicting ATP tennis match outcomes using historical data, benchmarked against bookmaker odds.
 
----
+## Overview
 
-## 🎯 Idée Générale
+This project predicts the winner of ATP tennis matches using player statistics, rankings, and historical performance data. The model is trained on 25 years of match data (2000-2025) from the Jeff Sackmann tennis database and incorporates time-decayed features to weight recent performance more heavily.
 
-Créer un modèle qui prédit le vainqueur d'un match de tennis en utilisant Python et machine learning.
-**Pourquoi le tennis ?**
-- ✅ Données gratuites et complètes (50 ans d'historique)
-- ✅ Résultats binaires simples (victoire/défaite)
-- ✅ On peut comparer nos prédictions aux bookmakers
-- ✅ Plein de variables intéressantes (classement, surface, forme)
+## Key Features
 
----
+- Historical data processing for 25 years of ATP matches
+- Time-decayed statistics using exponential weighting
+- Player-specific features: rankings, serve stats, surface performance
+- Head-to-head record calculation between players
+- Support for multiple models: Logistic Regression, Random Forest, XGBoost, AutoML
 
-## 📊 Les Données 
+## Work in Progress
 
-### Source Principale : Jeff Sackmann (GitHub)
-**Repository**: `github.com/JeffSackmann/tennis_atp` (et `tennis_wta`)
+- Benchmarking model predictions against bookmaker odds to evaluate profitability
+- Improving prediction accuracy through feature engineering and model tuning
+- Completing dataset statistics visualization and exploratory analysis
 
-**Ce qu'on a** :
-- Tous les matchs ATP depuis 1968 (format CSV)
-- Statistiques détaillées depuis 1991 (aces, doubles fautes, % service, etc.)
-- Classements des joueurs par semaine
-- Infos joueurs (âge, taille, main, pays)
-
-**Licence** : CC BY-NC-SA 4.0 
-
-### Source Complémentaire : Tennis-Data.co.uk
-**Site**: `http://www.tennis-data.co.uk/`
-
-**Ce qu'on a** :
-- Résultats de matchs avec cotes de bookmakers (2000-2024)
-- ATP et WTA
-- Plusieurs bookmakers par match
-- Téléchargement direct CSV/Excel
-
-**Pourquoi c'est important ?** Les cotes des bookmakers = prédictions d'experts. On pourra comparer notre modèle aux pros du pari !
-
----
-
-## 🚀 Approche Progressive 
-
-### Phase 1 : 
-**Objectif** : Avoir un modèle qui marche, même basique
-
-**Données** :
-- Résultats de matchs ATP (Jeff Sackmann)
-- Classements des joueurs
-- Surface du court (terre, dur, gazon)
-
-**Features simples** :
-- Différence de classement entre les 2 joueurs
-- Taux de victoire par surface
-- Nombre de matchs joués récemment
-
-**Modèle** :
-- Régression logistique (le plus simple)
-- Évaluation : accuracy, comparaison avec "toujours prédire le mieux classé"
-
-**Livrables** :
-- Notebook Jupyter avec analyse exploratoire
-- Premier modèle qui tourne
-- Quelques visualisations (distributions, taux de victoire)
-
----
-
-### Phase 2 : 
-**Objectif** : Améliorer le modèle avec plus de features
-
-**Nouvelles features** :
-- Forme récente (victoires sur les 10 derniers matchs)
-- Head-to-head historique entre les 2 joueurs
-- Performance dans le tournoi en cours
-- Statistiques de service (aces, % première balle)
-
-**Nouveau modèle** :
-- Random Forest ou XGBoost
-- Feature importance (quelles variables comptent le plus ?)
-
-**Livrables** :
-- Modèle amélioré avec meilleures performances
-- Graphiques de feature importance
-- Analyse des erreurs du modèle
-
----
-
-### Phase 3 : 
-**Objectif** : Voir si notre modèle bat les bookmakers
-
-**Ajout des cotes** :
-- Intégrer les données Tennis-Data.co.uk
-- Convertir les cotes en probabilités
-- Comparer nos prédictions vs bookmakers
-
-**Analyses** :
-- Sur quels types de matchs notre modèle est meilleur ?
-- Où se trompe-t-on par rapport aux bookmakers ?
-- ROI simulé : si on avait parié avec notre modèle, combien on aurait gagné/perdu ?
-
-**Livrables** :
-- Tableau comparatif modèle vs bookmakers
-- Analyse des forces/faiblesses
-- Visualisations interactives (plotly)
-
----
-
-### Phase 4 : 
-**Options à ajouter si on a le temps** :
-
-**Option A - Clustering** :
-- Identifier des styles de jeu (serveur-volleyeur, baseliners, etc.)
-- Visualisation avec PCA
-
-**Option B - Dashboard** :
-- Interface Streamlit simple
-- Sélectionner 2 joueurs → voir prédiction
-
-**Option C - Météo** :
-- Ajouter données météo (température, vent) via Open-Meteo API gratuite
-- Voir si ça améliore les prédictions
-
-**Option D - NLP** :
-- Analyser des articles de presse ou Reddit
-- Sentiment autour des joueurs
-
-
-
-## 📁 Structure du Projet
-
+## Project Structure
 
 ```
-tennis-project/
-│
-├── README.md                    # Ce fichier
-├── requirements.txt             # Dépendances Python
-│
+├── src/
+│   ├── config.py                 # Paths and parameters
+│   ├── preprocessing/
+│   │   ├── cleaning.py           # Data loading and cleaning
+│   │   ├── features.py           # Feature engineering with decay
+│   │   └── pipeline.py           # Preprocessing orchestration
+│   └── training/
+│       ├── models.py             # Model definitions
+│       └── train.py              # Training loop, GridSearchCV, AutoML
 ├── data/
-│   ├── raw/                    # Données téléchargées
-│   └── processed/              # Données nettoyées
-│
-├── notebooks/                   # Jupyter notebooks
-│   ├── 1_exploration.ipynb     # Phase 1 : analyse de base
-│   ├── 2_features.ipynb        # Phase 2 : features avancées
-│   ├── 3_modeling.ipynb        # Phase 3 : modèles ML
-│   └── 4_bookmakers.ipynb      # Phase 3 : comparaison cotes
-│
-├── src/                        # Code Python réutilisable
-│   ├── data_loading.py
-│   ├── features.py
-│   └── models.py
-│
-└── reports/                    # Visualisations et rapport final
-    ├── figures/
-    └── rapport_final.pdf
+│   ├── raw/                      # ATP match CSVs (2000-2025)
+│   ├── processed/                # Train/test parquets, preprocessor
+│   └── predictions/              # Model outputs
+├── models/                       # Saved models (.pkl)
+├── notebooks/                    # Exploration notebooks
+├── main.py                       # Entry point
+└── predictions.py                # Prediction script for upcoming matches
 ```
 
+## Methods
 
+### Feature Engineering
+- Player rankings and ranking points difference
+- Physical attributes: age, height, handedness
+- Historical win rate (last N matches with exponential decay)
+- Surface-specific win rate (clay, hard, grass)
+- Head-to-head record between players
+- Serve statistics: ace rate, double fault rate, first serve percentage, break point save rate
+- Match context: tournament level, round, best of 3/5
 
+### Time Decay
+Statistics are weighted using exponential decay with configurable half-life (default: 180 days). Recent matches have more influence on predictions than older ones.
 
+### Models
+- Logistic Regression
+- Random Forest
+- XGBoost
+- FLAML AutoML (automatic model selection)
 
+### Fine tuning
+- GridsearchCV
+
+### Evaluation
+- Accuracy, Log Loss, ROC AUC
+- Baseline comparison: "higher-ranked player wins"
+- Bookmaker odds comparison (in progress)
+
+## Technologies
+
+- Python
+- Scikit-learn
+- XGBoost / LightGBM
+- FLAML (AutoML)
+- Pandas / NumPy
