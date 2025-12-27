@@ -19,11 +19,6 @@ ELO_BASE = 1500
 ELO_K = 32
 ELO_SURFACE_FACTOR = 0.5
 
-# Training
-MODEL_NAME = "LinearStats"  # "LogisticRegression", "RandomForest", "XGBoost", "AutoML", "LinearStats"
-AUTOML_TIME_BUDGET = 300  # secondes (si MODEL_NAME = "AutoML")
-SKIP_PREPROCESSING = False  # True pour charger directement les parquets
-USE_FEATURE_SELECTION = True  # True = RFECV pour LinearStats
 
 # Colonnes
 PLAYER_COLS = ["id", "name", "hand", "ht", "age", "rank", "rank_points"]

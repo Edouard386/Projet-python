@@ -2,6 +2,20 @@
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
+
+def evaluate_model(model, X, y):
+    """
+    Évalue un modèle.
+    """
+    y_pred = model.predict(X)
+    y_proba = model.predict_proba(X)[:, 1]
+    
+    return {
+        "accuracy": accuracy_score(y, y_pred),
+        "log_loss": log_loss(y, y_proba),
+        "roc_auc": roc_auc_score(y, y_proba)
+    }
 
 
 def proba_to_odds(proba):

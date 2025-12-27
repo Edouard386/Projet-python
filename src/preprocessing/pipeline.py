@@ -5,10 +5,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-from .cleaning import load_matches, clean_matches
 from .features import (
     build_player_history, create_features,
-    get_player_stats, get_surface_win_rate, get_h2h, get_default_stats
 )
 
 import sys
@@ -135,36 +133,4 @@ class TennisPreprocessor:
             return pickle.load(f)
 
 
-def run_preprocessing(raw_dir, save_dir=None, test_size=0.2):
-    """Pipeline complet de preprocessing."""
-    from sklearn.model_selection import train_test_split
 
-    print("Loading data...")
-    matches = load_matches(raw_dir)
-    print(f"Loaded {len(matches)} matches")
-
-    matches = clean_matches(matches)
-    print(f"After cleaning: {len(matches)} matches")
-
-    print("Creating features...")
-    preprocessor = TennisPreprocessor()
-    features_df = preprocessor.fit_transform(matches)
-    print(f"Features created: {features_df.shape}")
-
-    X, y = preprocessor.get_X_y(features_df)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=RANDOM_STATE
-    )
-    print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
-
-    if save_dir:
-        save_dir = Path(save_dir)
-        save_dir.mkdir(parents=True, exist_ok=True)
-        X_train.to_parquet(save_dir / "X_train.parquet")
-        X_test.to_parquet(save_dir / "X_test.parquet")
-        y_train.to_frame("target").to_parquet(save_dir / "y_train.parquet")
-        y_test.to_frame("target").to_parquet(save_dir / "y_test.parquet")
-        preprocessor.save(save_dir / "preprocessor.pkl")
-        print(f"Saved to {save_dir}")
-
-    return X_train, X_test, y_train, y_test, preprocessor
