@@ -4,13 +4,14 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
 
+
 def evaluate_model(model, X, y):
     """
     Évalue un modèle.
     """
     y_pred = model.predict(X)
     y_proba = model.predict_proba(X)[:, 1]
-    
+
     return {
         "accuracy": accuracy_score(y, y_pred),
         "log_loss": log_loss(y, y_proba),
@@ -21,10 +22,8 @@ def evaluate_model(model, X, y):
 def proba_to_odds(proba):
     """
     Convertit une probabilité en cote décimale.
-
     """
     proba = np.asarray(proba)
-    # Éviter division par zéro
     proba = np.clip(proba, 0.01, 0.99)
     return 1 / proba
 
@@ -43,71 +42,79 @@ def remove_margin(odds_a, odds_b):
 
     Les bookmakers ajoutent une marge (ex: probas totales = 105% au lieu de 100%).
     Cette fonction normalise pour revenir à 100%.
-
     """
     odds_a = np.asarray(odds_a)
     odds_b = np.asarray(odds_b)
 
-    # Probabilités implicites (avec marge)
     implied_a = 1 / odds_a
     implied_b = 1 / odds_b
 
-    # Total > 1 à cause de la marge
     total = implied_a + implied_b
 
-    # Normaliser pour avoir total = 1
     proba_a = implied_a / total
     proba_b = implied_b / total
 
     return proba_a, proba_b
 
 
-def find_value_bets(model_proba, bookmaker_odds, threshold=0.0):
+def find_value_bets(model_proba, odds_a, odds_b, threshold=0.0):
     """
-    Identifie les value bets : matchs où le modèle estime une proba plus haute
-    que celle implicite du bookmaker.
+    Identifie les value bets sur A et sur B.
 
-    Value bet = cote_bookmaker > cote_modele (on est payé plus que le risque réel)
+    Value bet = Expected Value > threshold
+    - EV_a = proba(A) * odds_a - 1
+    - EV_b = proba(B) * odds_b - 1 = (1 - proba(A)) * odds_b - 1
     """
     model_proba = np.asarray(model_proba)
-    bookmaker_odds = np.asarray(bookmaker_odds)
+    odds_a = np.asarray(odds_a)
+    odds_b = np.asarray(odds_b)
 
-    # Cote juste selon notre modèle
-    model_odds = proba_to_odds(model_proba)
+    proba_a = model_proba
+    proba_b = 1 - model_proba
 
-    # Expected Value = (proba * cote) - 1
-    # Si EV > 0, c'est un value bet
-    expected_value = (model_proba * bookmaker_odds) - 1
+    # Expected Value pour chaque côté
+    ev_a = proba_a * odds_a - 1
+    ev_b = proba_b * odds_b - 1
 
-    # Edge = différence entre proba modèle et proba bookmaker
-    bookmaker_proba = odds_to_proba(bookmaker_odds)
-    edge = model_proba - bookmaker_proba
+    # Probabilités implicites du bookmaker
+    bookmaker_proba_a = odds_to_proba(odds_a)
+    bookmaker_proba_b = odds_to_proba(odds_b)
 
     df = pd.DataFrame({
-        'model_proba': model_proba,
-        'model_odds': model_odds,
-        'bookmaker_odds': bookmaker_odds,
-        'bookmaker_proba': bookmaker_proba,
-        'edge': edge,
-        'expected_value': expected_value,
-        'is_value_bet': expected_value > threshold
+        'model_proba_a': proba_a,
+        'model_proba_b': proba_b,
+        'odds_a': odds_a,
+        'odds_b': odds_b,
+        'bookmaker_proba_a': bookmaker_proba_a,
+        'bookmaker_proba_b': bookmaker_proba_b,
+        'ev_a': ev_a,
+        'ev_b': ev_b,
+        'is_value_bet_a': ev_a > threshold,
+        'is_value_bet_b': ev_b > threshold,
+        'is_value_bet': (ev_a > threshold) | (ev_b > threshold)
     })
 
     return df
 
 
-def calculate_roi(predictions, actual_results, bookmaker_odds, stake=1.0):
+def calculate_roi(predictions, actual_results, odds_a, odds_b, stake=1.0):
     """
     Calcule le ROI si on avait parié selon les prédictions du modèle.
 
     Stratégie : on parie sur le joueur que le modèle prédit gagnant.
+    - Si pred=1, on parie sur A avec odds_a
+    - Si pred=0, on parie sur B avec odds_b
     """
     predictions = np.asarray(predictions)
     actual_results = np.asarray(actual_results)
-    bookmaker_odds = np.asarray(bookmaker_odds)
+    odds_a = np.asarray(odds_a)
+    odds_b = np.asarray(odds_b)
 
     n_bets = len(predictions)
     total_stake = n_bets * stake
+
+    # Cote sur laquelle on parie selon notre prédiction
+    bet_odds = np.where(predictions == 1, odds_a, odds_b)
 
     # Paris gagnés = prédiction correcte
     wins = predictions == actual_results
@@ -115,7 +122,7 @@ def calculate_roi(predictions, actual_results, bookmaker_odds, stake=1.0):
     n_losses = n_bets - n_wins
 
     # Gains = somme des (mise * cote) pour les paris gagnés
-    gains = (wins * bookmaker_odds * stake).sum()
+    gains = (wins * bet_odds * stake).sum()
 
     profit = gains - total_stake
     roi = profit / total_stake if total_stake > 0 else 0
@@ -132,58 +139,71 @@ def calculate_roi(predictions, actual_results, bookmaker_odds, stake=1.0):
     }
 
 
-def calculate_roi_value_bets(model_proba, actual_results, bookmaker_odds,
+def calculate_roi_value_bets(model_proba, actual_results, odds_a, odds_b,
                               threshold=0.0, stake=1.0):
     """
-    Calcule le ROI en ne pariant QUE sur les value bets.
+    Calcule le ROI en ne pariant QUE sur les value bets (sur A ou B).
+    
+    Un value bet sur A est identifié quand EV_a = proba(A) * odds_a - 1 > threshold
+    Un value bet sur B est identifié quand EV_b = proba(B) * odds_b - 1 > threshold
     """
     model_proba = np.asarray(model_proba)
     actual_results = np.asarray(actual_results)
-    bookmaker_odds = np.asarray(bookmaker_odds)
+    odds_a = np.asarray(odds_a)
+    odds_b = np.asarray(odds_b)
 
-    # Identifier les value bets
-    expected_value = (model_proba * bookmaker_odds) - 1
-    value_bet_mask = expected_value > threshold
+    proba_a = model_proba
+    proba_b = 1 - model_proba
 
-    if value_bet_mask.sum() == 0:
-        return {
-            'n_bets': 0,
-            'n_wins': 0,
-            'n_losses': 0,
-            'win_rate': 0,
-            'total_stake': 0,
-            'total_gains': 0,
-            'profit': 0,
-            'roi': 0,
-            'avg_expected_value': 0
-        }
+    # Expected value pour parier sur A ou sur B
+    ev_a = proba_a * odds_a - 1
+    ev_b = proba_b * odds_b - 1
 
-    # Filtrer sur les value bets uniquement
-    vb_results = actual_results[value_bet_mask]
-    vb_odds = bookmaker_odds[value_bet_mask]
-    vb_ev = expected_value[value_bet_mask]
+    # Value bet sur A : EV_a > threshold
+    vb_a_mask = ev_a > threshold
+    # Value bet sur B : EV_b > threshold
+    vb_b_mask = ev_b > threshold
 
-    n_bets = len(vb_results)
+    # Éviter de parier sur les deux côtés du même match
+    # Si les deux sont value bets, on prend celui avec la meilleure EV
+    both_mask = vb_a_mask & vb_b_mask
+    vb_a_mask = vb_a_mask & ~(both_mask & (ev_b > ev_a))
+    vb_b_mask = vb_b_mask & ~(both_mask & (ev_a >= ev_b))
+
+    # Parier sur A : on gagne si actual == 1
+    wins_a = (actual_results == 1) & vb_a_mask
+    gains_a = (wins_a * odds_a * stake).sum()
+    n_bets_a = vb_a_mask.sum()
+
+    # Parier sur B : on gagne si actual == 0
+    wins_b = (actual_results == 0) & vb_b_mask
+    gains_b = (wins_b * odds_b * stake).sum()
+    n_bets_b = vb_b_mask.sum()
+
+    # Total
+    n_bets = n_bets_a + n_bets_b
     total_stake = n_bets * stake
+    gains = gains_a + gains_b
+    n_wins = wins_a.sum() + wins_b.sum()
 
-    # On parie que le joueur gagne (target=1), donc on gagne si actual=1
-    wins = vb_results == 1
-    n_wins = wins.sum()
-
-    gains = (wins * vb_odds * stake).sum()
     profit = gains - total_stake
     roi = profit / total_stake if total_stake > 0 else 0
 
+    # EV moyenne sur les value bets sélectionnés
+    all_ev = np.concatenate([ev_a[vb_a_mask], ev_b[vb_b_mask]]) if n_bets > 0 else np.array([0])
+
     return {
-        'n_bets': n_bets,
-        'n_wins': n_wins,
-        'n_losses': n_bets - n_wins,
+        'n_bets': int(n_bets),
+        'n_bets_on_a': int(n_bets_a),
+        'n_bets_on_b': int(n_bets_b),
+        'n_wins': int(n_wins),
+        'n_losses': int(n_bets - n_wins),
         'win_rate': n_wins / n_bets if n_bets > 0 else 0,
         'total_stake': total_stake,
         'total_gains': gains,
         'profit': profit,
         'roi': roi,
-        'avg_expected_value': vb_ev.mean()
+        'avg_expected_value': all_ev.mean() if len(all_ev) > 0 else 0
     }
 
 
@@ -219,7 +239,6 @@ def compare_accuracy(model_proba, bookmaker_odds_a, bookmaker_odds_b, actual_res
     n_disagree = disagree_mask.sum()
 
     if n_disagree > 0:
-        # Quand ils divergent, qui a raison ?
         model_wins_when_disagree = model_correct[disagree_mask].sum()
         bookmaker_wins_when_disagree = bookmaker_correct[disagree_mask].sum()
     else:
@@ -239,7 +258,7 @@ def compare_accuracy(model_proba, bookmaker_odds_a, bookmaker_odds_b, actual_res
     }
 
 
-def calculate_roi_evolution(predictions, actual_results, bookmaker_odds, stake=1.0):
+def calculate_roi_evolution(predictions, actual_results, odds_a, odds_b, stake=1.0):
     """
     Calcule l'évolution du ROI au fil des paris.
 
@@ -247,14 +266,18 @@ def calculate_roi_evolution(predictions, actual_results, bookmaker_odds, stake=1
     """
     predictions = np.asarray(predictions)
     actual_results = np.asarray(actual_results)
-    bookmaker_odds = np.asarray(bookmaker_odds)
+    odds_a = np.asarray(odds_a)
+    odds_b = np.asarray(odds_b)
 
     n_bets = len(predictions)
     cumul_stake = np.arange(1, n_bets + 1) * stake
 
+    # Cote sur laquelle on parie selon notre prédiction
+    bet_odds = np.where(predictions == 1, odds_a, odds_b)
+
     # Gains par pari : mise * cote si gagné, 0 sinon
     wins = predictions == actual_results
-    gains_per_bet = wins * bookmaker_odds * stake
+    gains_per_bet = wins * bet_odds * stake
 
     # Cumulés
     cumul_gains = np.cumsum(gains_per_bet)
@@ -270,7 +293,7 @@ def calculate_roi_evolution(predictions, actual_results, bookmaker_odds, stake=1
     })
 
 
-def analyze_threshold_impact(model_proba, actual_results, bookmaker_odds,
+def analyze_threshold_impact(model_proba, actual_results, odds_a, odds_b,
                               thresholds=None, stake=1.0):
     """
     Analyse l'impact du seuil de value bet sur le ROI.
@@ -285,7 +308,8 @@ def analyze_threshold_impact(model_proba, actual_results, bookmaker_odds,
         roi = calculate_roi_value_bets(
             model_proba=model_proba,
             actual_results=actual_results,
-            bookmaker_odds=bookmaker_odds,
+            odds_a=odds_a,
+            odds_b=odds_b,
             threshold=thresh,
             stake=stake
         )
@@ -293,6 +317,8 @@ def analyze_threshold_impact(model_proba, actual_results, bookmaker_odds,
             'threshold': thresh,
             'threshold_pct': thresh * 100,
             'n_bets': roi['n_bets'],
+            'n_bets_on_a': roi['n_bets_on_a'],
+            'n_bets_on_b': roi['n_bets_on_b'],
             'n_wins': roi['n_wins'],
             'win_rate': roi['win_rate'] * 100,
             'profit': roi['profit'],
