@@ -94,6 +94,11 @@ Nous avons comparé nos prédictions aux cotes Bet365 sur les matchs de **2025**
 ```
 
 ## Installation et reproductibilité
+
+Pas oublier de vérifier qu'on est sur la branche **main**.
+
+En suite éxécuter sur un terminal bash:
+
 ```bash
 # Cloner le projet
 git clone https://github.com/Edouard386/Projet-python.git
@@ -104,8 +109,6 @@ cd Projet-python
 # Installer les dépendances
 pip install -r requirements.txt
 ```
-La branche de travail principale est **main**.
-
 Puis exécuter `notebooks/rendu_final.ipynb`. Les données sont téléchargées automatiquement au premier lancement.
 
 Puis exécuter `notebooks/rendu_final.ipynb`. Les données sont téléchargées automatiquement au premier lancement.
