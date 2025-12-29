@@ -2,6 +2,7 @@
 
 **Projet Python ENSAE**
 *Auteurs : Dejean William, Sala Satorre Daniel, Auvepre Edouard*
+
 Le notebook final se trouve dans *notebooks/rendu_final*.
 
 ## Table des matières
